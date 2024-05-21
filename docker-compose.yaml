@@ -1,0 +1,56 @@
+version: "3.5"
+
+services:
+  web:
+    image: nginx
+    volumes:
+      - ./nginx/nginx.conf:/tmp/nginx.conf
+    environment:
+      - BACKEND_SERVER=http://backend:8081
+      - UI_SERVER=http://ui:3000
+    ports:
+      - 80:80
+    command: /bin/bash -c "envsubst < /tmp/nginx.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+    depends_on:
+      - backend
+      - ui
+    networks:
+      - shorten_links
+
+
+  redis:
+    image: docker.io/bitnami/redis:7.2
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    ports:
+      - "6379:6379"
+    networks:
+      - shorten_links
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    networks:
+      - shorten_links
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
+      - shorten_links
+
+networks:
+  shorten_links:
+    driver: bridge
