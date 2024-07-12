@@ -12,7 +12,7 @@ export default function Home() {
       return;
     }
     e.preventDefault();
-    fetch(`http://localhost/api/v1/shorten?originLink=${url}`)
+    fetch(`http://localhost:8081/api/v1/shorten?originLink=${url}`)
       .then((res) => {
         return res.json();
       })
