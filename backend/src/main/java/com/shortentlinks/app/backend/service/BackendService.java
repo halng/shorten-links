@@ -1,6 +1,7 @@
 package com.shortentlinks.app.backend.service;
 
 import com.shortentlinks.app.backend.entity.Link;
+import com.shortentlinks.app.backend.exception.NotFoundException;
 import com.shortentlinks.app.backend.repositories.LinkRepository;
 import jakarta.xml.bind.DatatypeConverter;
 import java.nio.charset.StandardCharsets;
@@ -17,17 +18,20 @@ import org.springframework.stereotype.Service;
 public class BackendService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BackendService.class);
+    
     private static final String ALGORITHM = "MD5";
+    private static final String BASE_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final String REGEX_URL = "[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)";
+    private static final String ERROR_MESSAGE = "URL_IS_NOT_VALID";
+    private static final int MAX_LENGTH = 10;
+    private static final int BASE_LENGTH = 62;
+
+    private final Pattern pattern = Pattern.compile(REGEX_URL);
+    private final Random random = new Random();
 
     private final LinkRepository linkRepository;
     private final RedisService redisService;
-    private static final String BASE_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final int MAX_LENGTH = 10;
-    private static final int BASE_LENGTH = 62;
-    private static final String ERROR_MESSAGE = "URL_IS_NOT_VALID";
-    private static final String REGEX_URL = "[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)";
-    private final Pattern pattern = Pattern.compile(REGEX_URL);
-    private final Random random = new Random();
+
 
     @Autowired
     public BackendService(LinkRepository linkRepository, RedisService redisService) {
@@ -76,20 +80,20 @@ public class BackendService {
         }
 
         String hashLinkAuthor = generateHash("SYSTEM", originLink);
-        Link link = this.linkRepository.findLinkByHash(hashLinkAuthor).orElse(null);
-        if (link != null) {
-            LOGGER.info("Link {} already exists", link.getOriginLink());
-            return link.getShortLinkId();
+        var link = this.linkRepository.findLinkByHash(hashLinkAuthor);
+        if (link.isPresent()) {
+            LOGGER.info("Link {} already exists", link.get().getOriginLink());
+            return link.get().getShortLinkId();
         }
 
-        String linkId = "";
+        String linkId;
         do {
             linkId = getUniqueStr();
         } while (linkRepository.existsById(linkId));
 
-        link = new Link(originLink, linkId, "SYSTEM", hashLinkAuthor);
-        LOGGER.info("Save link: {} with id: {}", link.getOriginLink(), link.getShortLinkId());
-        linkRepository.save(link);
+        Link newlink = new Link(originLink, linkId, "SYSTEM", hashLinkAuthor);
+        LOGGER.info("Save link: {} with id: {}", newlink.getOriginLink(), newlink.getShortLinkId());
+        linkRepository.save(newlink);
         redisService.set(linkId, originLink);
         return linkId;
     }
@@ -101,8 +105,8 @@ public class BackendService {
             return originLink;
         }
 
-        Link link = linkRepository.findById(shortLink).orElse(null);
-        redisService.set(shortLink, link.getOriginLink());
+        Link link = linkRepository.findById(shortLink)
+            .orElseThrow(() -> new NotFoundException("Link not found"));
         return link.getOriginLink();
     }
 }
