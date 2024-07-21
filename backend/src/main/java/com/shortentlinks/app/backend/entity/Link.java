@@ -1,13 +1,10 @@
 package com.shortentlinks.app.backend.entity;
 
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.xml.bind.DatatypeConverter;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 
 @Entity
@@ -15,8 +12,8 @@ import java.time.Instant;
 public class Link {
 
     private static final Integer DEFAULT_EXPIRATION_TIME_IN_MILLIS = 864000;
-    private static final String ALGORITHM = "MD5";
 
+    @Column(nullable = false)
     private String originLink;
     @Id
     private String shortLinkId;
@@ -25,33 +22,21 @@ public class Link {
     private String creator;
     // This field will be hashed from originLink + creator + shortLink
     // This is also the primary key for the table
+    @Column(unique = true)
     private String hash;
-
-    // ==================================================================================================
-    private String generateHash() {
-        try {
-            String strToHashBuff = this.originLink + this.creator + this.shortLinkId;
-            MessageDigest md = MessageDigest.getInstance(ALGORITHM);
-            byte[] encodedHash = md.digest(strToHashBuff.getBytes(StandardCharsets.UTF_8));
-            return DatatypeConverter.printHexBinary(encodedHash);
-        } catch (NoSuchAlgorithmException e) {
-            // Should throw an exception here
-            return "DO_NOT_HASH";
-        }
-    }
 
     public Link() {
         // Default constructor
     }
 
-    public Link(String originLink, String shortLinkId, String creator) {
+    public Link(String originLink, String shortLinkId, String creator, String hash) {
         this.originLink = originLink;
         this.shortLinkId = shortLinkId;
         this.creator = creator;
         this.createdAt = Instant.now();
         this.expirationDate = Instant.ofEpochMilli(
             this.createdAt.toEpochMilli() + DEFAULT_EXPIRATION_TIME_IN_MILLIS);
-        this.hash = this.generateHash();
+        this.hash = hash;
     }
 
     // getter and setter
