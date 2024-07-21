@@ -8,5 +8,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface LinkRepository extends JpaRepository<Link, String> {
 
-    Optional<Link> getByOriginLink(String originLink);
+    Optional<Link> findLinkByHash(String hash);
 }
